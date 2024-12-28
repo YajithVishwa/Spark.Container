@@ -1,14 +1,13 @@
-FROM python:3.8.10-slim
+FROM ubuntu:22.04
 
-# Set Spark environment variables
-ENV SPARK_HOME=/opt/spark \
+ENV DEBIAN_FRONTEND=noninteractive \
+    SPARK_HOME=/opt/spark \
     SPARK_VERSION=3.5.3 \
     PATH="/opt/spark/bin:/opt/mssql-tools18/bin:$PATH"
 
-# Install Java, Spark dependencies, and utilities
 RUN mkdir -p /usr/share/man/man1 && \
     apt-get update && \
-    apt-get install -y openjdk-11-jdk wget curl gpg bash unixodbc-dev procps && \
+    apt-get install -y openjdk-11-jdk wget curl gpg bash unixodbc-dev procps python3 python3-pip  && \
     export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:/bin/java::") && \
     echo "JAVA_HOME=${JAVA_HOME}" >> /etc/environment && \
     wget https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz && \
@@ -16,24 +15,28 @@ RUN mkdir -p /usr/share/man/man1 && \
     tar -xzf spark-${SPARK_VERSION}-bin-hadoop3.tgz -C ${SPARK_HOME} --strip-components=1 && \
     rm spark-${SPARK_VERSION}-bin-hadoop3.tgz && \
     curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg && \
-    curl https://packages.microsoft.com/config/ubuntu/24.04/prod.list | tee /etc/apt/sources.list.d/mssql-release.list && \
+    echo "deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" > /etc/apt/sources.list.d/mssql-release.list && \
     apt-get update && \
     ACCEPT_EULA=Y apt-get install -y msodbcsql18 mssql-tools18 && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set JAVA_HOME for the runtime environment
-ENV JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
-# Copy the JDBC driver to the Spark jars directory
+RUN python --version && pip3 --version
+
+ENV JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+ENV PATH="${JAVA_HOME}/bin:/usr/bin/python3:/usr/bin/pip:${PATH}"
+
 COPY mssql-jdbc-12.8.1.jre11.jar ${SPARK_HOME}/jars/
 
-# Set up the application
+RUN pip install pyspark==3.5.3
+
+# Above code is build and kept ready in https://hub.docker.com/r/yajith2001/pyspark-job
 WORKDIR /app
+
 COPY main.py requirements.txt /app/
 
-# Install Python dependencies
-RUN pip install pyspark==3.5.3 && pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
-# Run the application
-CMD ["python3", "/app/main.py"]
+CMD ["python", "/app/main.py"]
