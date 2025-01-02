@@ -26,7 +26,7 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN python --version && pip3 --version
 
 ENV JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
-ENV PATH="${JAVA_HOME}/bin:/usr/bin/python3:/usr/bin/pip:${PATH}"
+ENV PATH="${JAVA_HOME}/bin:/usr/bin/python3:/usr/bin/python:/usr/bin/pip:${PATH}"
 
 COPY mssql-jdbc-12.8.1.jre11.jar ${SPARK_HOME}/jars/
 
